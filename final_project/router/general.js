@@ -7,6 +7,8 @@ let users = require("./auth_users.js").users;
 
 const public_users = express.Router();
 
+const BASE_URL = "http://localhost:5000";
+
 // Task 6: Register a new user
 public_users.post("/register", (req, res) => {
     const username = req.body.username;
@@ -42,6 +44,13 @@ public_users.get('/', function (req, res) {
 // Task 2: Get a book by ISBN
 public_users.get('/isbn/:isbn', function (req, res) {
     const isbn = req.params.isbn;
+
+    if (!books[isbn]) {
+        return res.status(404).json({
+            message: "Book not found"
+        });
+    }
+
     return res.send(books[isbn]);
 });
 
@@ -55,6 +64,12 @@ public_users.get('/author/:author', function (req, res) {
             matchingBooks[isbn] = books[isbn];
         }
     });
+
+    if (Object.keys(matchingBooks).length === 0) {
+        return res.status(404).json({
+            message: "No books found for the specified author"
+        });
+    }
 
     return res.send(JSON.stringify(matchingBooks, null, 4));
 });
@@ -70,75 +85,134 @@ public_users.get('/title/:title', function (req, res) {
         }
     });
 
+    if (Object.keys(matchingBooks).length === 0) {
+        return res.status(404).json({
+            message: "No books found for the specified title"
+        });
+    }
+
     return res.send(JSON.stringify(matchingBooks, null, 4));
 });
 
 // Task 5: Get book reviews
 public_users.get('/review/:isbn', function (req, res) {
     const isbn = req.params.isbn;
+
+    if (!books[isbn]) {
+        return res.status(404).json({
+            message: "Book not found"
+        });
+    }
+
     return res.send(books[isbn].reviews);
 });
 
-// Task 10: Get all books using Async/Await with Axios
-const getAllBooks = async () => {
+// Task 10:
+// Get all books using Async/Await with Axios
+public_users.get('/books', async function (req, res) {
     try {
-        const response = await axios.get("http://localhost:5000/");
-        return response.data;
+        const response = await axios.get(`${BASE_URL}/`);
+
+        return res.status(200).json(response.data);
     } catch (error) {
-        console.error("Error retrieving books:", error.message);
-        throw error;
+        return res.status(500).json({
+            message: "Error retrieving all books",
+            error: error.message
+        });
     }
-};
+});
 
-// Task 11: Get a book by ISBN using Async/Await with Axios
-const getBookByISBN = async (isbn) => {
+// Task 11:
+// Get a book by ISBN using Promises with Axios
+public_users.get('/books/isbn/:isbn', function (req, res) {
+    const isbn = req.params.isbn;
+
+    axios.get(`${BASE_URL}/isbn/${isbn}`)
+        .then((response) => {
+            if (!response.data) {
+                return res.status(404).json({
+                    message: "Book not found"
+                });
+            }
+
+            return res.status(200).json(response.data);
+        })
+        .catch((error) => {
+            const statusCode = error.response
+                ? error.response.status
+                : 500;
+
+            return res.status(statusCode).json({
+                message: "Error retrieving book by ISBN",
+                error: error.message
+            });
+        });
+});
+
+// Task 12:
+// Get books by author using Async/Await with Axios
+public_users.get('/books/author/:author', async function (req, res) {
     try {
-        const response = await axios.get(
-            `http://localhost:5000/isbn/${isbn}`
-        );
-
-        return response.data;
-    } catch (error) {
-        console.error("Error retrieving book by ISBN:", error.message);
-        throw error;
-    }
-};
-
-// Task 12: Get books by author using Async/Await with Axios
-const getBooksByAuthor = async (author) => {
-    try {
+        const author = req.params.author;
         const encodedAuthor = encodeURIComponent(author);
 
         const response = await axios.get(
-            `http://localhost:5000/author/${encodedAuthor}`
+            `${BASE_URL}/author/${encodedAuthor}`
         );
 
-        return response.data;
-    } catch (error) {
-        console.error("Error retrieving books by author:", error.message);
-        throw error;
-    }
-};
+        if (
+            !response.data ||
+            Object.keys(response.data).length === 0
+        ) {
+            return res.status(404).json({
+                message: "No books found for the specified author"
+            });
+        }
 
-// Task 13: Get books by title using Async/Await with Axios
-const getBooksByTitle = async (title) => {
+        return res.status(200).json(response.data);
+    } catch (error) {
+        const statusCode = error.response
+            ? error.response.status
+            : 500;
+
+        return res.status(statusCode).json({
+            message: "Error retrieving books by author",
+            error: error.message
+        });
+    }
+});
+
+// Task 13:
+// Get books by title using Async/Await with Axios
+public_users.get('/books/title/:title', async function (req, res) {
     try {
+        const title = req.params.title;
         const encodedTitle = encodeURIComponent(title);
 
         const response = await axios.get(
-            `http://localhost:5000/title/${encodedTitle}`
+            `${BASE_URL}/title/${encodedTitle}`
         );
 
-        return response.data;
+        if (
+            !response.data ||
+            Object.keys(response.data).length === 0
+        ) {
+            return res.status(404).json({
+                message: "No books found for the specified title"
+            });
+        }
+
+        return res.status(200).json(response.data);
     } catch (error) {
-        console.error("Error retrieving books by title:", error.message);
-        throw error;
+        const statusCode = error.response
+            ? error.response.status
+            : 500;
+
+        return res.status(statusCode).json({
+            message: "Error retrieving books by title",
+            error: error.message
+        });
     }
-};
+});
 
 module.exports.general = public_users;
-
-module.exports.getAllBooks = getAllBooks;
-module.exports.getBookByISBN = getBookByISBN;
-module.exports.getBooksByAuthor = getBooksByAuthor;
-module.exports.getBooksByTitle = getBooksByTitle;
